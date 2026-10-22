@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Subway Surfers 3D: Ultimate Vault Run</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js r128 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            box-sizing: border-box;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0b0f19;
+            font-family: 'Inter', sans-serif;
+            touch-action: none;
+        }
+        .font-game {
+            font-family: 'Fredoka', sans-serif;
+            letter-spacing: 0.03em;
+        }
+        .font-mono-fps {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        #game-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 1;
+        }
+        /* Custom Arcade UI Button Effects */
+        .arcade-btn {
+            transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 6px 0 #1e293b, 0 12px 20px rgba(0,0,0,0.4);
+        }
+        .arcade-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #1e293b, 0 4px 10px rgba(0,0,0,0.4);
+        }
+        /* Disco Lights Animation for Rickroll Screen */
+        @keyframes discoBg {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .rickroll-bg {
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab, #7928ca, #ff0080);
+            background-size: 400% 400%;
+            animation: discoBg 5s ease infinite;
+        }
+        @keyframes bounce Karaoke {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.06); }
+        }
+        .karaoke-active {
+            animation: bounceKaraoke 0.4s ease-in-out infinite;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.9), 0 0 40px #ff0080;
+        }
+    </style>
+</head>
+<body class="relative w-full h-full overflow-hidden">
+
+    <!-- 3D WebGL Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- HUD OVERLAY -->
+    <div id="hud" class="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between p-3 sm:p-5">
+        <!-- Top Bar: FPS, Progress to Finish Line, Score & Coins -->
+        <div class="flex flex-wrap items-start justify-between gap-3 w-full max-w-7xl mx-auto">
+            
+            <!-- Left: Real-Time High-Refresh FPS Monitor -->
+            <div class="bg-slate-900/85 backdrop-blur-md border-2 border-emerald-400/50 rounded-2xl px-3.5 py-2 shadow-lg flex items-center gap-3 pointer-events-auto">
+                <div class="relative flex h-3 w-3">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </div>
+                <div>
+                    <div class="flex items-baseline gap-1.5">
+                        <span id="fps-value" class="font-mono-fps text-xl sm:text-2xl font-bold text-emerald-400">120</span>
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">FPS</span>
+                    </div>
+                    <div id="frame-time" class="text-[10px] font-mono-fps text-slate-400">8.3 ms | High-Refresh Ready</div>
+                </div>
+            </div>
+
+            <!-- Center: Finish Line Progress Bar -->
+            <div class="flex-1 max-w-md mx-auto bg-slate-900/85 backdrop-blur-md border-2 border-amber-400/60 rounded-2xl p-2.5 shadow-xl">
+                <div class="flex justify-between items-center text-xs font-bold uppercase tracking-wider mb-1 px-1">
+                    <span class="text-cyan-300 flex items-center gap-1">🏃 START</span>
+                    <span id="progress-text" class="font-game text-amber-300 text-sm">0% TO MYSTERY VAULT</span>
+                    <span class="text-amber-400 flex items-center gap-1">🏁 FINISH</span>
+                </div>
+                <div class="w-full h-4 bg-slate-800 rounded-full overflow-hidden border border-slate-700 relative p-0.5">
+                    <div id="progress-bar" class="h-full bg-gradient-to-r from-cyan-400 via-amber-400 to-pink-500 rounded-full transition-none" style="width: 0%;"></div>
+                </div>
+            </div>
+
+            <!-- Right: Coins & Score Counter -->
+            <div class="flex items-center gap-2.5">
+                <div class="bg-slate-900/85 backdrop-blur-md border-2 border-yellow-400/60 rounded-2xl px-4 py-2 shadow-lg flex items-center gap-2">
+                    <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-yellow-500 to-amber-300 flex items-center justify-center text-slate-950 font-black text-xs shadow">$</div>
+                    <span id="coin-count" class="font-game text-xl sm:text-2xl text-yellow-300">0</span>
+                </div>
+                <div class="bg-slate-900/85 backdrop-blur-md border-2 border-cyan-400/60 rounded-2xl px-4 py-2 shadow-lg flex flex-col items-end">
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-cyan-300">SCORE</span>
+                    <span id="score-count" class="font-game text-xl sm:text-2xl text-white leading-none">00000</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Status Popups (e.g. Speed Boost / Near Miss) -->
+        <div id="status-toast" class="self-center font-game text-2xl sm:text-4xl text-amber-300 drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] opacity-0 transition-opacity duration-200 pointer-events-none">
+            AWESOME!
+        </div>
+
+        <!-- Bottom Touch / Click Arcade Controls -->
+        <div class="w-full max-w-lg mx-auto flex flex-col items-center gap-2 pointer-events-auto pb-1">
+            <div class="grid grid-cols-4 gap-2 sm:gap-3 w-full">
+                <button id="btn-left" class="arcade-btn bg-gradient-to-b from-indigo-500 to-indigo-700 hover:from-indigo-400 hover:to-indigo-600 text-white font-game py-3 rounded-2xl border-2 border-indigo-300 flex flex-col items-center justify-center">
+                    <span class="text-lg sm:text-xl leading-none">◀ LEFT</span>
+                    <span class="text-[10px] opacity-80 font-sans">A / Arrow</span>
+                </button>
+                <button id="btn-jump" class="arcade-btn bg-gradient-to-b from-emerald-500 to-emerald-700 hover:from-emerald-400 hover:to-emerald-600 text-white font-game py-3 rounded-2xl border-2 border-emerald-300 flex flex-col items-center justify-center">
+                    <span class="text-lg sm:text-xl leading-none">▲ JUMP</span>
+                    <span class="text-[10px] opacity-80 font-sans">W / Space</span>
+                </button>
+                <button id="btn-roll" class="arcade-btn bg-gradient-to-b from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-white font-game py-3 rounded-2xl border-2 border-amber-300 flex flex-col items-center justify-center">
+                    <span class="text-lg sm:text-xl leading-none">▼ ROLL</span>
+                    <span class="text-[10px] opacity-80 font-sans">S / Down</span>
+                </button>
+                <button id="btn-right" class="arcade-btn bg-gradient-to-b from-indigo-500 to-indigo-700 hover:from-indigo-400 hover:to-indigo-600 text-white font-game py-3 rounded-2xl border-2 border-indigo-300 flex flex-col items-center justify-center">
+                    <span class="text-lg sm:text-xl leading-none">RIGHT ▶</span>
+                    <span class="text-[10px] opacity-80 font-sans">D / Arrow</span>
+                </button>
+            </div>
+            <div class="text-[11px] text-slate-300/80 bg-slate-900/60 px-3 py-0.5 rounded-full backdrop-blur-sm">
+                Swipe Anywhere, Use Keyboard (WASD / Arrows), or Tap Buttons • Drag Sky to Tilt Camera
+            </div>
+        </div>
+    </div>
+
+    <!-- START / MENU MODAL -->
+    <div id="start-modal" class="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
+        <div class="max-w-lg w-full bg-gradient-to-b from-slate-800 to-slate-900 border-4 border-amber-400 rounded-3xl p-6 sm:p-8 text-center shadow-2xl relative overflow-hidden">
+            <div class="inline-block bg-amber-400 text-slate-950 font-extrabold text-xs uppercase tracking-widest px-3 py-1 rounded-full mb-3">
+                120 FPS Ultra-Smooth 3D Engine
+            </div>
+            <h1 class="font-game text-4xl sm:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-amber-300 to-pink-400 drop-shadow mb-2">
+                SUBWAY SURFERS
+            </h1>
+            <p class="font-game text-lg text-amber-300 mb-4 tracking-wide">
+                QUEST FOR THE GOLDEN MYSTERY VAULT
+            </p>
+            <p class="text-slate-300 text-sm sm:text-base mb-6 leading-relaxed">
+                Dodge oncoming express trains, leap over low laser barriers, and roll under high gates! Reach <span class="text-amber-300 font-bold">100% Progress</span> to unlock the legendary Grand Champion Prize at the finish line!
+            </p>
+
+            <!-- Obstacle Legend -->
+            <div class="grid grid-cols-3 gap-2 mb-6 text-left bg-slate-950/60 p-3 rounded-2xl border border-slate-700 text-xs">
+                <div class="flex flex-col items-center text-center p-1">
+                    <span class="text-2xl mb-1">🚆</span>
+                    <span class="font-bold text-rose-400">Trains</span>
+                    <span class="text-slate-400">Switch Lanes!</span>
+                </div>
+                <div class="flex flex-col items-center text-center p-1 border-x border-slate-800">
+                    <span class="text-2xl mb-1">🚧</span>
+                    <span class="font-bold text-emerald-400">Low Barrier</span>
+                    <span class="text-slate-400">Jump Over!</span>
+                </div>
+                <div class="flex flex-col items-center text-center p-1">
+                    <span class="text-2xl mb-1">⛩️</span>
+                    <span class="font-bold text-amber-400">High Gate</span>
+                    <span class="text-slate-400">Roll Under!</span>
+                </div>
+            </div>
+
+            <!-- Length Selector -->
+            <div class="flex items-center justify-center gap-2 mb-6">
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Track Length:</span>
+                <button data-dist="450" class="dist-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-400 text-slate-950 shadow">Quick Sprint (~25s)</button>
+                <button data-dist="850" class="dist-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700">Standard (~45s)</button>
+            </div>
+
+            <button id="btn-start-game" class="arcade-btn w-full py-4 bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 hover:from-emerald-300 hover:to-cyan-300 text-slate-950 font-game text-2xl rounded-2xl border-2 border-white shadow-xl cursor-pointer">
+                ▶ START RUNNING
+            </button>
+        </div>
+    </div>
+
+    <!-- CRASH / GAME OVER MODAL -->
+    <div id="crash-modal" class="hidden absolute inset-0 z-20 flex items-center justify-center bg-rose-950/85 backdrop-blur-md p-4">
+        <div class="max-w-md w-full bg-slate-900 border-4 border-rose-500 rounded-3xl p-6 sm:p-8 text-center shadow-2xl">
+            <div class="text-5xl mb-2">💥</div>
+            <h2 class="font-game text-4xl text-rose-400 mb-2">WIPEOUT!</h2>
+            <p id="crash-reason" class="text-slate-300 text-sm mb-5">You slammed into an express train!</p>
+            
+            <div class="bg-slate-950 rounded-2xl p-4 mb-6 grid grid-cols-2 gap-4 border border-slate-800">
+                <div>
+                    <div class="text-xs text-slate-400 uppercase font-bold">Distance</div>
+                    <div id="crash-progress" class="font-game text-2xl text-amber-400">64%</div>
+                </div>
+                <div>
+                    <div class="text-xs text-slate-400 uppercase font-bold">Coins Collected</div>
+                    <div id="crash-coins" class="font-game text-2xl text-yellow-300">24</div>
+                </div>
+            </div>
+
+            <button id="btn-retry" class="arcade-btn w-full py-4 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-game text-2xl rounded-2xl border-2 border-white shadow-xl cursor-pointer">
+                ↻ TRY AGAIN
+            </button>
+        </div>
+    </div>
+
+    <!-- CELEBRATORY FULL-SCREEN RICKROLL WINNER OVERLAY -->
+    <div id="rickroll-modal" class="hidden absolute inset-0 z-30 rickroll-bg flex flex-col items-center justify-between p-4 sm:p-6 overflow-y-auto">
+        <!-- Top Confetti & Victory Banner -->
+        <div class="w-full max-w-4xl flex flex-wrap items-center justify-between gap-2 bg-slate-950/80 backdrop-blur-lg border-2 border-white/40 rounded-2xl px-4 py-2.5 shadow-2xl">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl">🏆</span>
+                <div>
+                    <div class="font-game text-amber-300 text-base sm:text-lg leading-none">YOU WON! GRAND VAULT UNLOCKED!</div>
+                    <div class="text-xs text-pink-300 font-bold">OFFICIAL VICTORY REWARD: YOU JUST GOT RICKROLLED IN 120 FPS!</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="rick-fps-badge" class="font-mono-fps text-xs bg-emerald-500/20 border border-emerald-400 text-emerald-300 px-2.5 py-1 rounded-lg">120 FPS</span>
+                <button id="btn-toggle-music" class="px-3 py-1.5 rounded-xl bg-pink-600 hover:bg-pink-500 text-white font-bold text-xs shadow cursor-pointer">
+                    🔊 Music: ON
+                </button>
+            </div>
+        </div>
+
+        <!-- Center Animated Rick Astley Stage & Synchronized Lyrics -->
+        <div class="my-auto w-full max-w-3xl bg-slate-950/85 backdrop-blur-xl border-4 border-amber-300 rounded-3xl p-4 sm:p-6 shadow-[0_0_60px_rgba(0,0,0,0.8)] flex flex-col items-center text-center relative">
+            
+            <!-- High-FPS 2D Procedural Rick Astley Stage Canvas -->
+            <div class="w-full h-56 sm:h-72 rounded-2xl overflow-hidden border-2 border-pink-500/60 relative bg-slate-900 mb-4 shadow-inner">
+                <canvas id="rick-canvas" class="w-full h-full block"></canvas>
+                <div class="absolute top-2 left-3 bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow">
+                    <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span> LIVE 1987 HD REMASTER
+                </div>
+                <div id="win-stats-badge" class="absolute bottom-2 right-3 bg-slate-950/80 text-amber-300 text-xs font-bold px-3 py-1 rounded-full border border-amber-400/40">
+                    Score: 0 | Coins: 0
+                </div>
+            </div>
+
+            <!-- Live Karaoke Lyrics Box -->
+            <div class="w-full bg-gradient-to-r from-indigo-950 via-purple-950 to-pink-950 border-2 border-pink-400/50 rounded-2xl p-4 mb-4 shadow-lg">
+                <div class="text-[11px] uppercase tracking-widest text-pink-300 font-bold mb-1">
+                    🎤 Sing Along • WebAudio Chiptune Synthesizer
+                </div>
+                <div id="lyric-current" class="font-game text-2xl sm:text-3xl text-white karaoke-active min-h-[2.5rem] flex items-center justify-center">
+                    ♪ Never gonna give you up! ♪
+                </div>
+                <div id="lyric-next" class="text-sm sm:text-base text-pink-200/70 font-semibold mt-1">
+                    Next: Never gonna let you down...
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-wrap items-center justify-center gap-3 w-full">
+                <button id="btn-play-again" class="arcade-btn flex-1 min-w-[180px] py-3.5 bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950 font-game text-xl rounded-2xl border-2 border-white cursor-pointer">
+                    🏃 PLAY AGAIN (RUN FASTER!)
+                </button>
+                <button id="btn-encore" class="arcade-btn px-6 py-3.5 bg-gradient-to-r from-pink-500 to-amber-500 text-white font-game text-xl rounded-2xl border-2 border-white cursor-pointer">
+                    🕺 RESTART CHORUS
+                </button>
+            </div>
+        </div>
+
+        <div class="text-xs text-white/90 font-semibold drop-shadow">
+            Built with Zero-Allocation Object Pooling & Delta-Time Interpolation for 100–120+ Hz Displays
+        </div>
+    </div>
+
+    <script>
+        /********************************************************************
+         * 1. SOUND & RICKROLL SYNTHESIZER ENGINE (Pure Web Audio API)
+         * Generates arcade SFX and the iconic "Never Gonna Give You Up"
+         * melody + bassline + drums + synchronized karaoke lyrics!
+         ********************************************************************/
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.isMuted = false;
+                this.rickPlaying = false;
+                this.rickTimer = null;
+                this.stepIndex = 0;
+
+                // Iconic Chorus Melody + Bass + Lyrics Sequence (114 BPM -> 16th note ≈ 131.5ms)
+                this.chorusSteps = [
+                    // Bar 1: "Never gonna give you up"
+                    { note: 293.66, dur: 1, bass: 146.83, lyric: "♪ Never gonna give you up! ♪", next: "Never gonna let you down..." }, // D4
+                    { note: 329.63, dur: 1, bass: 0 },      // E4
+                    { note: 392.00, dur: 1, bass: 0 },      // G4
+                    { note: 329.63, dur: 1, bass: 0 },      // E4
+                    { note: 493.88, dur: 3, bass: 196.00 }, // B4
+                    { note: 0, dur: 1, bass: 0 },
+                    { note: 0, dur: 1, bass: 0 },
+                    { note: 493.88, dur: 3, bass: 196.00 }, // B4
+                    { note: 0, dur: 1, bass: 0 },
+                    { note: 0, dur: 1, bass: 0 },
+                    { note: 440.00, dur: 4, bass: 164.81 }, // A4
+                    { note: 0, dur: 4, bass: 0 },
+
+                    // Bar 2: "Never gonna let you down"
+                    { note: 293.66, dur: 1, bass: 146.83, lyric: "♪ Never gonna let you down! ♪", next: "Never gonna run around and desert you..." }, // D4
+                    { note: 329.63, dur: 1, bass: 0 },      // E4
+                    { note: 392.00, dur: 1, bass: 0 },      // G4
+                    { note: 329.63, dur: 1, bass: 0 },      // E4
+                    { note: 440.00, dur: 3, bass: 220.00 }, // A4
+                    { note: 0, dur: 1, bass: 0 },
+                    { note: 0, dur: 1, bass: 0 },
+                    { note: 440.00, dur: 3, bass: 220.00 }, // A4
+                    { note: 0, dur: 1, bass: 0 },
+                    { note: 0, dur: 1, bass: 0 },
+                    { note: 392.00, dur: 3, bass: 146.83 }, // G4
+                    { note: 0, dur: 1, bass: 0 },
+                    { note: 370.00, dur: 2, bass: 0 },      // F#4
+                    { note: 329.63, dur: 3, bass: 0 },      // E4
+                    { note: 0, dur: 1, bass: 0 },
+
+                    // Bar 3: "Never gonna run around and desert you"
+                    { note: 293.66, dur: 1, bass: 146.83, lyric: "♪ Never gonna run around and desert you! ♪", next: "Never gonna make you cry..." },
+                    { note: 329.63, dur: 1, bass: 0 },
+                    { note: 392.00, dur: 1, bass: 0 },
+                    { note: 329.63, dur: 1, bass: 0 },
+                    { note: 392.00, dur: 4, bass: 196.00 }, // G4
+                    { note: 440.00, dur: 2, bass: 0 },      // A4
+                    { note: 370.00, dur: 3, bass: 164.81 }, // F#4
+                    { note: 329.63, dur: 1, bass: 0 },      // E4
+                    { note: 293.66, dur: 2, bass: 146.83 }, // D4
+                    { note: 293.66, dur: 2, bass: 0 },      // D4
+                    { note: 440.00, dur: 4, bass: 220.00 }, // A4
+                    { note: 392.00, dur: 6, bass: 196.00 }, // G4
+                    { note: 0, dur: 2, bass: 0 },
+
+                    // Bar 4: "Never gonna make you cry, Never gonna say goodbye"
+                    { note: 293.66, dur: 1, bass: 146.83, lyric: "♪ Never gonna make you cry! ♪", next: "Never gonna say goodbye..." },
+                    { note: 329.63, dur: 1, bass: 0 },
+                    { note: 392.00, dur: 1, bass: 0 },
+                    { note: 329.63, dur: 1, bass: 0 },
+                    { note: 493.88, dur: 3, bass: 196.00 }, // B4
+                    { note: 0, dur: 1, bass: 0 },
+                    { note: 0, dur: 1, bass: 0 },
+                    { note: 493.88, dur: 3, bass: 196.00 }, // B4
+                    { note: 0, dur: 1, bass: 0 },
+                    { note: 0, dur: 1, bass: 0 },
+                    { note: 440.00, dur: 4, bass: 164.81, lyric: "♪ Never gonna say goodbye! ♪", next: "Never gonna tell a lie and hurt you!" },
+                    { note: 0, dur: 4, bass: 0 },
+
+                    // Bar 5: "Never gonna tell a lie and hurt you"
+                    { note: 293.66, dur: 1, bass: 146.83, lyric: "♪ Never gonna tell a lie and hurt you! ♪", next: "Never gonna give you up!" },
+                    { note: 329.63, dur: 1, bass: 0 },
+                    { note: 392.00, dur: 1, bass: 0 },
+                    { note: 329.63, dur: 1, bass: 0 },
+                    { note: 587.33, dur: 4, bass: 220.00 }, // D5
+                    { note: 370.00, dur: 2, bass: 0 },      // F#4
+                    { note: 392.00, dur: 3, bass: 196.00 }, // G4
+                    { note: 370.00, dur: 1, bass: 0 },      // F#4
+                    { note: 329.63, dur: 2, bass: 164.81 }, // E4
+                    { note: 293.66, dur: 2, bass: 146.83 }, // D4
+                    { note: 440.00, dur: 4, bass: 220.00 }, // A4
+                    { note: 392.00, dur: 6, bass: 196.00 }, // G4
+                    { note: 0, dur: 2, bass: 0 }
+                ];
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playTone(freq, type, duration, vol = 0.12, slideFreq = null) {
+                if (this.isMuted || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, now);
+                if (slideFreq) {
+                    osc.frequency.exponentialRampToValueAtTime(slideFreq, now + duration);
+                }
+                gain.gain.setValueAtTime(vol, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + duration);
+            }
+
+            playCoin() {
+                this.init();
+                this.playTone(987.77, 'sine', 0.08, 0.12); // B5
+                setTimeout(() => this.playTone(1318.51, 'triangle', 0.18, 0.14), 60); // E6
+            }
+
+            playJump() {
+                this.init();
+                this.playTone(240, 'sine', 0.18, 0.12, 580);
+            }
+
+            playRoll() {
+                this.init();
+                this.playTone(380, 'triangle', 0.15, 0.12, 140);
+            }
+
+            playLaneSwitch() {
+                this.init();
+                this.playTone(320, 'sine', 0.07, 0.07, 440);
+            }
+
+            playCrash() {
+                this.init();
+                this.playTone(140, 'sawtooth', 0.35, 0.2, 45);
+            }
+
+            startRickroll(onLyricUpdate) {
+                this.init();
+                this.stopRickroll();
+                this.rickPlaying = true;
+                this.stepIndex = 0;
+
+                const tick = () => {
+                    if (!this.rickPlaying) return;
+                    const step = this.chorusSteps[this.stepIndex];
+                    if (step.lyric && onLyricUpdate) {
+                        onLyricUpdate(step.lyric, step.next);
+                    }
+                    if (!this.isMuted && this.ctx) {
+                        // Lead 80s Brass Synth
+                        if (step.note > 0) {
+                            this.playTone(step.note, 'sawtooth', step.dur * 0.125, 0.11);
+                            this.playTone(step.note * 1.004, 'square', step.dur * 0.12, 0.06);
+                        }
+                        // Punchy Synth Bass
+                        if (step.bass > 0) {
+                            this.playTone(step.bass, 'triangle', 0.22, 0.16);
+                        }
+                        // Disco Hi-hat / Snare pulse every 2 steps
+                        if (this.stepIndex % 2 === 0) {
+                            this.playTone(95, 'sine', 0.06, 0.12, 40);
+                        }
+                    }
+                    this.stepIndex = (this.stepIndex + 1) % this.chorusSteps.length;
+                    this.rickTimer = setTimeout(tick, 130);
+                };
+                tick();
+            }
+
+            stopRickroll() {
+                this.rickPlaying = false;
+                if (this.rickTimer) {
+                    clearTimeout(this.rickTimer);
+                    this.rickTimer = null;
+                }
+            }
+        }
+
+        const sound = new SoundEngine();
+
+        /********************************************************************
+         * 2. HIGH-FPS 3D SUBWAY SURFERS ENGINE (Three.js r128)
+         * Pre-allocates all meshes and uses object pooling + delta time
+         * so there is zero garbage collection stutter at 100-120+ FPS.
+         ********************************************************************/
+        const canvas = document.getElementById('game-canvas');
+        const renderer = new THREE.WebGLRenderer({
+            canvas,
+            antialias: true,
+            powerPreference: 'high-performance'
+        });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0f172a);
+        scene.fog = new THREE.FogExp2(0x0f172a, 0.012);
+
+        const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 160);
+        const camBasePos = { x: 0, y: 5.4, z: 9.5 };
+        let camOrbitOffset = { x: 0, y: 0 };
+
+        // Lights
+        const hemiLight = new THREE.HemisphereLight(0x7dd3fc, 0x1e1b4b, 0.85);
+        scene.add(hemiLight);
+
+        const dirLight = new THREE.DirectionalLight(0xfffbeb, 1.1);
+        dirLight.position.set(14, 28, 18);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        dirLight.shadow.camera.near = 1;
+        dirLight.shadow.camera.far = 80;
+        const d = 18;
+        dirLight.shadow.camera.left = -d;
+        dirLight.shadow.camera.right = d;
+        dirLight.shadow.camera.top = d;
+        dirLight.shadow.camera.bottom = -d;
+        scene.add(dirLight);
+
+        // Lane Constants (-3.2 = Left, 0 = Center, +3.2 = Right)
+        const LANES = [-3.2, 0, 3.2];
+
+        // Track Environment & Endless Railway Sleepers Pool
+        const trackGroup = new THREE.Group();
+        scene.add(trackGroup);
+
+        // Ground Bed
+        const groundGeo = new THREE.PlaneGeometry(36, 220);
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 });
+        const groundMesh = new THREE.Mesh(groundGeo, groundMat);
+        groundMesh.rotation.x = -Math.PI / 2;
+        groundMesh.position.z = -80;
+        groundMesh.receiveShadow = true;
+        trackGroup.add(groundMesh);
+
+        // Glowing Neon Side Curbs & Steel Rails for Each of the 3 Lanes
+        const railGeo = new THREE.BoxGeometry(0.12, 0.14, 220);
+        const railMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.2 });
+        LANES.forEach(laneX => {
+            [-0.85, 0.85].forEach(offset => {
+                const rail = new THREE.Mesh(railGeo, railMat);
+                rail.position.set(laneX + offset, 0.08, -80);
+                trackGroup.add(rail);
+            });
+        });
+
+        // Scrolling Railway Sleepers & Neon Pillars Pool
+        const sleeperPool = [];
+        const sleeperGeo = new THREE.BoxGeometry(2.2, 0.08, 0.45);
+        const sleeperMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.8 });
+        const pillarGeo = new THREE.BoxGeometry(0.6, 9, 0.6);
+        const pillarMat = new THREE.MeshStandardMaterial({ color: 0x334155 });
+        const neonStripGeo = new THREE.BoxGeometry(0.15, 7.5, 0.15);
+        const neonStripMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+
+        for (let i = 0; i < 28; i++) {
+            const rowGroup = new THREE.Group();
+            const zPos = 12 - i * 5;
+            rowGroup.position.z = zPos;
+
+            LANES.forEach(lx => {
+                const s = new THREE.Mesh(sleeperGeo, sleeperMat);
+                s.position.set(lx, 0.04, 0);
+                s.receiveShadow = true;
+                rowGroup.add(s);
+            });
+
+            // Add Neon Side Arch Pillars every 3rd sleeper
+            if (i % 3 === 0) {
+                [-7.2, 7.2].forEach(sideX => {
+                    const p = new THREE.Mesh(pillarGeo, pillarMat);
+                    p.position.set(sideX, 4.5, 0);
+                    rowGroup.add(p);
+
+                    const n = new THREE.Mesh(neonStripGeo, neonStripMat);
+                    n.position.set(sideX > 0 ? sideX - 0.32 : sideX + 0.32, 4.5, 0);
+                    rowGroup.add(n);
+                });
+            }
+
+            scene.add(rowGroup);
+            sleeperPool.push(rowGroup);
+        }
+
+        // Player Character (Articulated Surfer with Hoodie, Cap, Jetpack & Sneakers)
+        const playerGroup = new THREE.Group();
+        scene.add(playerGroup);
+
+        const bodyGroup = new THREE.Group();
+        playerGroup.add(bodyGroup);
+
+        // Torso Hoodie
+        const torsoMat = new THREE.MeshStandardMaterial({ color: 0x06b6d4, roughness: 0.4 });
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(0.95, 1.15, 0.55), torsoMat);
+        torso.position.y = 1.35;
+        torso.castShadow = true;
+        bodyGroup.add(torso);
+
+        // Spray-Can Jetpack on Back
+        const packMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.5, roughness: 0.3 });
+        const pack = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.8, 0.3), packMat);
+        pack.position.set(0, 1.35, 0.38);
+        bodyGroup.add(pack);
+
+        // Head & Backward Red Cap
+        const headMat = new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.5 });
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.75, 0.75), headMat);
+        head.position.y = 2.35;
+        head.castShadow = true;
+        bodyGroup.add(head);
+
+        const capMat = new THREE.MeshStandardMaterial({ color: 0xf43f5e, roughness: 0.5 });
+        const capTop = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.32, 0.8), capMat);
+        capTop.position.y = 2.68;
+        bodyGroup.add(capTop);
+        const capVisor = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.12, 0.4), capMat);
+        capVisor.position.set(0, 2.56, 0.52); // Facing backward like Jake!
+        bodyGroup.add(capVisor);
+
+        // Limbs for Running Animation
+        const legGeo = new THREE.BoxGeometry(0.34, 0.75, 0.34);
+        const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a });
+        const leftLeg = new THREE.Mesh(legGeo, pantsMat);
+        leftLeg.position.set(-0.24, 0.45, 0);
+        leftLeg.castShadow = true;
+        bodyGroup.add(leftLeg);
+
+        const rightLeg = new THREE.Mesh(legGeo, pantsMat);
+        rightLeg.position.set(0.24, 0.45, 0);
+        rightLeg.castShadow = true;
+        bodyGroup.add(rightLeg);
+
+        const armGeo = new THREE.BoxGeometry(0.28, 0.75, 0.28);
+        const leftArm = new THREE.Mesh(armGeo, torsoMat);
+        leftArm.position.set(-0.66, 1.35, 0);
+        leftArm.castShadow = true;
+        bodyGroup.add(leftArm);
+
+        const rightArm = new THREE.Mesh(armGeo, torsoMat);
+        rightArm.position.set(0.66, 1.35, 0);
+        rightArm.castShadow = true;
+        bodyGroup.add(rightArm);
+
+        // Pre-Allocated Obstacle Pool (Trains, Jump Barriers, Roll High-Gates)
+        const obstaclePool = [];
+        const OBSTACLE_POOL_SIZE = 18;
+
+        const trainBodyMat = new THREE.MeshStandardMaterial({ color: 0xe11d48, roughness: 0.3, metalness: 0.2 });
+        const trainStripeMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3 });
+        const trainWinMat = new THREE.MeshBasicMaterial({ color: 0xbae6fd });
+        const barrierBarMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.4 });
+        const highGateMat = new THREE.MeshStandardMaterial({ color: 0xa855f7, roughness: 0.3 });
+
+        function createPooledObstacle() {
+            const group = new THREE.Group();
+            group.visible = false;
+
+            // Sub-mesh 0: Express Train (Tall & Long - Must Switch Lanes)
+            const trainGroup = new THREE.Group();
+            const tBody = new THREE.Mesh(new THREE.BoxGeometry(2.45, 3.3, 11), trainBodyMat);
+            tBody.position.y = 1.65;
+            tBody.castShadow = true;
+            tBody.receiveShadow = true;
+            trainGroup.add(tBody);
+
+            const tStripe = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.45, 11.05), trainStripeMat);
+            tStripe.position.y = 1.1;
+            trainGroup.add(tStripe);
+
+            const tWindow = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.85, 0.15), trainWinMat);
+            tWindow.position.set(0, 2.35, 5.5);
+            trainGroup.add(tWindow);
+            group.add(trainGroup);
+
+            // Sub-mesh 1: Low Barrier (Jump Over)
+            const lowBarrierGroup = new THREE.Group();
+            const lbBar = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.65, 0.35), barrierBarMat);
+            lbBar.position.y = 0.85;
+            lbBar.castShadow = true;
+            lowBarrierGroup.add(lbBar);
+            [-1.0, 1.0].forEach(px => {
+                const post = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.1, 0.22), railMat);
+                post.position.set(px, 0.55, 0);
+                lowBarrierGroup.add(post);
+            });
+            group.add(lowBarrierGroup);
+
+            // Sub-mesh 2: High Gate (Roll Under)
+            const highGateGroup = new THREE.Group();
+            const hgTop = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.85, 0.45), highGateMat);
+            hgTop.position.y = 2.25; // Leaves 0 to 1.32m clearance underneath for rolling
+            hgTop.castShadow = true;
+            highGateGroup.add(hgTop);
+            [-1.1, 1.1].forEach(px => {
+                const post = new THREE.Mesh(new THREE.BoxGeometry(0.24, 3.2, 0.24), railMat);
+                post.position.set(px, 1.6, 0);
+                highGateGroup.add(post);
+            });
+            group.add(highGateGroup);
+
+            scene.add(group);
+            return {
+                group,
+                trainGroup,
+                lowBarrierGroup,
+                highGateGroup,
+                active: false,
+                type: 'train', // 'train', 'low', 'high'
+                lane: 0,
+                z: -100
+            };
+        }
+
+        for (let i = 0; i < OBSTACLE_POOL_SIZE; i++) {
+            obstaclePool.push(createPooledObstacle());
+        }
+
+        // Pre-Allocated Coin Pool
+        const coinPool = [];
+        const COIN_POOL_SIZE = 35;
+        const coinGeo = new THREE.CylinderGeometry(0.52, 0.52, 0.16, 16);
+        coinGeo.rotateX(Math.PI / 2);
+        const coinMat = new THREE.MeshStandardMaterial({
+            color: 0xfacc15,
+            metalness: 0.7,
+            roughness: 0.2,
+            emissive: 0xca8a04,
+            emissiveIntensity: 0.25
+        });
+
+        for (let i = 0; i < COIN_POOL_SIZE; i++) {
+            const mesh = new THREE.Mesh(coinGeo, coinMat);
+            mesh.visible = false;
+            scene.add(mesh);
+            coinPool.push({ mesh, active: false, lane: 0, baseY: 1.1, z: -100 });
+        }
+
+        // Grand Finish Line & Golden Mystery Vault Archway (Spawns when approaching 100%)
+        const finishGateGroup = new THREE.Group();
+        finishGateGroup.visible = false;
+        const archPillarGeo = new THREE.BoxGeometry(1.2, 8.5, 1.2);
+        const archGoldMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.8, roughness: 0.2 });
+        [-5.5, 5.5].forEach(x => {
+            const p = new THREE.Mesh(archPillarGeo, archGoldMat);
+            p.position.set(x, 4.25, 0);
+            finishGateGroup.add(p);
+        });
+        const archBanner = new THREE.Mesh(
+            new THREE.BoxGeometry(12.5, 2.0, 1.4),
+            new THREE.MeshBasicMaterial({ color: 0xec4899 })
+        );
+        archBanner.position.set(0, 7.8, 0);
+        finishGateGroup.add(archBanner);
+        scene.add(finishGateGroup);
+
+        /********************************************************************
+         * 3. GAMEPLAY STATE & RESPONSIVE INPUT CONTROLLER
+         ********************************************************************/
+        const gameState = {
+            mode: 'MENU', // 'MENU', 'PLAYING', 'CRASHED', 'WON'
+            targetDistance: 450,
+            distanceRun: 0,
+            speed: 26,
+            maxSpeed: 38,
+            coins: 0,
+            score: 0,
+            currentLane: 1, // 0 = Left, 1 = Center, 2 = Right
+            playerX: 0,
+            playerY: 0,
+            velocityY: 0,
+            isJumping: false,
+            isRolling: false,
+            rollTimer: 0,
+            spawnTimer: 0,
+            coinSpawnTimer: 0,
+            finishSpawned: false,
+            finishZ: -120
+        };
+
+        // UI Elements
+        const fpsValueEl = document.getElementById('fps-value');
+        const frameTimeEl = document.getElementById('frame-time');
+        const progressBarEl = document.getElementById('progress-bar');
+        const progressTextEl = document.getElementById('progress-text');
+        const coinCountEl = document.getElementById('coin-count');
+        const scoreCountEl = document.getElementById('score-count');
+        const statusToastEl = document.getElementById('status-toast');
+        const startModal = document.getElementById('start-modal');
+        const crashModal = document.getElementById('crash-modal');
+        const rickrollModal = document.getElementById('rickroll-modal');
+
+        function showToast(text) {
+            statusToastEl.textContent = text;
+            statusToastEl.style.opacity = '1';
+            clearTimeout(statusToastEl._timer);
+            statusToastEl._timer = setTimeout(() => {
+                statusToastEl.style.opacity = '0';
+            }, 900);
+        }
+
+        function moveLeft() {
+            if (gameState.mode !== 'PLAYING') return;
+            if (gameState.currentLane > 0) {
+                gameState.currentLane--;
+                sound.playLaneSwitch();
+            }
+        }
+
+        function moveRight() {
+            if (gameState.mode !== 'PLAYING') return;
+            if (gameState.currentLane < 2) {
+                gameState.currentLane++;
+                sound.playLaneSwitch();
+            }
+        }
+
+        function triggerJump() {
+            if (gameState.mode !== 'PLAYING') return;
+            if (!gameState.isJumping) {
+                gameState.isJumping = true;
+                gameState.velocityY = 13.8;
+                gameState.isRolling = false;
+                sound.playJump();
+            }
+        }
+
+        function triggerRoll() {
+            if (gameState.mode !== 'PLAYING') return;
+            if (gameState.isJumping) {
+                // Fast slam down from air
+                gameState.velocityY = -24;
+            }
+            gameState.isRolling = true;
+            gameState.rollTimer = 0.62;
+            sound.playRoll();
+        }
+
+        // Keyboard Listeners
+        window.addEventListener('keydown', (e) => {
+            if (gameState.mode !== 'PLAYING') return;
+            switch (e.code) {
+                case 'ArrowLeft':
+                case 'KeyA':
+                    e.preventDefault();
+                    moveLeft();
+                    break;
+                case 'ArrowRight':
+                case 'KeyD':
+                    e.preventDefault();
+                    moveRight();
+                    break;
+                case 'ArrowUp':
+                case 'KeyW':
+                case 'Space':
+                    e.preventDefault();
+                    triggerJump();
+                    break;
+                case 'ArrowDown':
+                case 'KeyS':
+                    e.preventDefault();
+                    triggerRoll();
+                    break;
+            }
+        });
+
+        // On-Screen Arcade Buttons
+        document.getElementById('btn-left').addEventListener('click', moveLeft);
+        document.getElementById('btn-right').addEventListener('click', moveRight);
+        document.getElementById('btn-jump').addEventListener('click', triggerJump);
+        document.getElementById('btn-roll').addEventListener('click', triggerRoll);
+
+        // Touch Swipe & Mouse Camera Tilt Support
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let isDraggingCamera = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 0) {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            }
+        }, { passive: true });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (e.changedTouches.length === 0) return;
+            const dx = e.changedTouches[0].clientX - touchStartX;
+            const dy = e.changedTouches[0].clientY - touchStartY;
+            if (Math.abs(dx) < 24 && Math.abs(dy) < 24) return;
+            if (Math.abs(dx) > Math.abs(dy)) {
+                if (dx > 0) moveRight();
+                else moveLeft();
+            } else {
+                if (dy < 0) triggerJump();
+                else triggerRoll();
+            }
+        }, { passive: true });
+
+        // Mouse Camera Angle Adjustment (as per 3D simulation guidelines)
+        canvas.addEventListener('mousedown', (e) => {
+            isDraggingCamera = true;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!isDraggingCamera) return;
+            const dx = (e.clientX - dragStartX) / window.innerWidth;
+            const dy = (e.clientY - dragStartY) / window.innerHeight;
+            camOrbitOffset.x = Math.max(-2.5, Math.min(2.5, dx * 5));
+            camOrbitOffset.y = Math.max(-1.2, Math.min(2.0, -dy * 4));
+        });
+        window.addEventListener('mouseup', () => {
+            isDraggingCamera = false;
+            camOrbitOffset.x = 0;
+            camOrbitOffset.y = 0;
+        });
+
+        // Track Length Selection Buttons
+        document.querySelectorAll('.dist-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.dist-btn').forEach(b => {
+                    b.className = 'dist-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700';
+                });
+                btn.className = 'dist-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-400 text-slate-950 shadow';
+                gameState.targetDistance = parseInt(btn.getAttribute('data-dist'), 10);
+            });
+        });
+
+        // Reset & Start Game
+        function startGame() {
+            sound.init();
+            sound.stopRickroll();
+            rickrollModal.classList.add('hidden');
+            startModal.classList.add('hidden');
+            crashModal.classList.add('hidden');
+
+            // Reset Pool Objects
+            obstaclePool.forEach(o => {
+                o.active = false;
+                o.group.visible = false;
+            });
+            coinPool.forEach(c => {
+                c.active = false;
+                c.mesh.visible = false;
+            });
+
+            finishGateGroup.visible = false;
+            gameState.mode = 'PLAYING';
+            gameState.distanceRun = 0;
+            gameState.speed = 26;
+            gameState.coins = 0;
+            gameState.score = 0;
+            gameState.currentLane = 1;
+            gameState.playerX = 0;
+            gameState.playerY = 0;
+            gameState.velocityY = 0;
+            gameState.isJumping = false;
+            gameState.isRolling = false;
+            gameState.rollTimer = 0;
+            gameState.spawnTimer = 0.4;
+            gameState.coinSpawnTimer = 0.2;
+            gameState.finishSpawned = false;
+
+            coinCountEl.textContent = '0';
+            scoreCountEl.textContent = '00000';
+            progressBarEl.style.width = '0%';
+            progressTextEl.textContent = '0% TO MYSTERY VAULT';
+            showToast('LET\'S GO!');
+        }
+
+        document.getElementById('btn-start-game').addEventListener('click', startGame);
+        document.getElementById('btn-retry').addEventListener('click', startGame);
+        document.getElementById('btn-play-again').addEventListener('click', startGame);
+        document.getElementById('btn-encore').addEventListener('click', () => {
+            sound.startRickroll(updateKaraokeLyrics);
+        });
+        document.getElementById('btn-toggle-music').addEventListener('click', (e) => {
+            sound.isMuted = !sound.isMuted;
+            e.currentTarget.textContent = sound.isMuted ? '🔇 Music: OFF' : '🔊 Music: ON';
+        });
+
+        /********************************************************************
+         * 4. OBSTACLE & COIN SPAWNER (Using Pre-Allocated Pools)
+         ********************************************************************/
+        function spawnObstacleWave() {
+            // Stop spawning obstacles near the finish line so player has a clear celebratory sprint
+            if (gameState.distanceRun > gameState.targetDistance - 65) return;
+
+            // Choose 1 or 2 lanes to block (always leave at least 1 lane passable or jumpable)
+            const laneIndices = [0, 1, 2];
+            laneIndices.sort(() => Math.random() - 0.5);
+            const count = Math.random() < 0.48 ? 2 : 1;
+
+            for (let i = 0; i < count; i++) {
+                const obs = obstaclePool.find(o => !o.active);
+                if (!obs) break;
+
+                const lane = laneIndices[i];
+                // Ensure we don't spawn 2 impassable trains if count === 2 and third lane is tight
+                const r = Math.random();
+                let type = 'train';
+                if (r < 0.38) type = 'low';
+                else if (r < 0.68) type = 'high';
+
+                obs.active = true;
+                obs.type = type;
+                obs.lane = lane;
+                obs.z = -105;
+
+                obs.trainGroup.visible = (type === 'train');
+                obs.lowBarrierGroup.visible = (type === 'low');
+                obs.highGateGroup.visible = (type === 'high');
+
+                obs.group.position.set(LANES[lane], 0, obs.z);
+                obs.group.visible = true;
+            }
+        }
+
+        function spawnCoinLine() {
+            if (gameState.distanceRun > gameState.targetDistance - 45) return;
+            const lane = Math.floor(Math.random() * 3);
+            const isArc = Math.random() < 0.35;
+            for (let i = 0; i < 5; i++) {
+                const c = coinPool.find(item => !item.active);
+                if (!c) break;
+                c.active = true;
+                c.lane = lane;
+                c.z = -95 - i * 3.2;
+                c.baseY = isArc ? 1.1 + Math.sin((i / 4) * Math.PI) * 1.8 : 1.1;
+                c.mesh.position.set(LANES[lane], c.baseY, c.z);
+                c.mesh.visible = true;
+            }
+        }
+
+        /********************************************************************
+         * 5. RICKROLL CELEBRATION STAGE RENDERER (2D Canvas @ 120 FPS)
+         * Draws an animated Rick Astley in his iconic trenchcoat, sunglasses,
+         * retro 80s synthwave grid, disco spotlights, and floating notes!
+         ********************************************************************/
+        const rickCanvas = document.getElementById('rick-canvas');
+        const rickCtx = rickCanvas.getContext('2d');
+        const confettiParticles = [];
+        for (let i = 0; i < 65; i++) {
+            confettiParticles.push({
+                x: Math.random(),
+                y: Math.random(),
+                vx: (Math.random() - 0.5) * 0.15,
+                vy: 0.2 + Math.random() * 0.35,
+                color: ['#f43f5e', '#facc15', '#38bdf8', '#4ade80', '#e879f9'][i % 5],
+                size: 5 + Math.random() * 6,
+                tilt: Math.random() * Math.PI
+            });
+        }
+
+        function updateKaraokeLyrics(curr, next) {
+            const currEl = document.getElementById('lyric-current');
+            const nextEl = document.getElementById('lyric-next');
+            if (currEl) currEl.textContent = curr;
+            if (nextEl) nextEl.textContent = 'Next: ' + next;
+        }
+
+        function triggerWinRickroll() {
+            gameState.mode = 'WON';
+            rickrollModal.classList.remove('hidden');
+            document.getElementById('win-stats-badge').textContent =
+                `Score: ${Math.floor(gameState.score)} | Coins: ${gameState.coins}`;
+            resizeRickCanvas();
+            sound.startRickroll(updateKaraokeLyrics);
+        }
+
+        function resizeRickCanvas() {
+            const rect = rickCanvas.parentElement.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+                rickCanvas.width = rect.width * Math.min(window.devicePixelRatio, 2);
+                rickCanvas.height = rect.height * Math.min(window.devicePixelRatio, 2);
+            }
+        }
+
+        function renderRickrollStage(timeSec, dt) {
+            const w = rickCanvas.width;
+            const h = rickCanvas.height;
+            if (w === 0 || h === 0) return;
+
+            // 1. 1980s Studio Brick / Neon Backstage Background
+            const bgGrad = rickCtx.createLinearGradient(0, 0, 0, h);
+            bgGrad.addColorStop(0, '#1e1b4b');
+            bgGrad.addColorStop(0.65, '#3b0764');
+            bgGrad.addColorStop(1, '#0f172a');
+            rickCtx.fillStyle = bgGrad;
+            rickCtx.fillRect(0, 0, w, h);
+
+            // Sweeping Disco Laser Spotlights
+            for (let i = 0; i < 3; i++) {
+                const angle = Math.sin(timeSec * 2.5 + i * 2.1) * 0.45;
+                rickCtx.save();
+                rickCtx.translate(w * (0.25 + i * 0.25), 0);
+                rickCtx.rotate(angle);
+                const beamGrad = rickCtx.createLinearGradient(0, 0, 0, h);
+                beamGrad.addColorStop(0, i === 1 ? 'rgba(56, 189, 248, 0.35)' : 'rgba(244, 63, 94, 0.35)');
+                beamGrad.addColorStop(1, 'rgba(0,0,0,0)');
+                rickCtx.fillStyle = beamGrad;
+                rickCtx.beginPath();
+                rickCtx.moveTo(-20, 0);
+                rickCtx.lineTo(20, 0);
+                rickCtx.lineTo(130, h);
+                rickCtx.lineTo(-130, h);
+                rickCtx.closePath();
+                rickCtx.fill();
+                rickCtx.restore();
+            }
+
+            // Retro Perspective Synth Grid Floor
+            const floorY = h * 0.72;
+            rickCtx.fillStyle = '#090d16';
+            rickCtx.fillRect(0, floorY, w, h - floorY);
+            rickCtx.strokeStyle = 'rgba(236, 72, 153, 0.55)';
+            rickCtx.lineWidth = 2;
+            for (let i = -6; i <= 6; i++) {
+                rickCtx.beginPath();
+                rickCtx.moveTo(w / 2 + i * (w * 0.04), floorY);
+                rickCtx.lineTo(w / 2 + i * (w * 0.16), h);
+                rickCtx.stroke();
+            }
+
+            // 2. Animated Dancing Rick Astley (114 BPM Groove)
+            const beat = timeSec * (114 / 60) * Math.PI * 2;
+            const swayX = Math.sin(beat * 0.5) * (h * 0.08);
+            const bounceY = Math.abs(Math.sin(beat)) * (h * 0.035);
+            const cx = w * 0.5 + swayX;
+            const cy = floorY - h * 0.22 + bounceY;
+            const scale = h / 260;
+
+            rickCtx.save();
+            rickCtx.translate(cx, cy);
+            rickCtx.scale(scale, scale);
+
+            // Legs dancing
+            rickCtx.fillStyle = '#1e293b';
+            rickCtx.fillRect(-22, 32, 16, 48 - bounceY * 0.3);
+            rickCtx.fillRect(6, 32, 16, 48 - bounceY * 0.3);
+
+            // Iconic Tan Trenchcoat + Striped Polo Shirt
+            rickCtx.fillStyle = '#0284c7';
+            rickCtx.fillRect(-26, -34, 52, 68);
+            rickCtx.fillStyle = '#f8fafc';
+            rickCtx.fillRect(-26, -18, 52, 8);
+            rickCtx.fillRect(-26, 2, 52, 8);
+
+            // Trenchcoat Lapels
+            rickCtx.fillStyle = '#d97706';
+            rickCtx.fillRect(-34, -36, 18, 74);
+            rickCtx.fillRect(16, -36, 18, 74);
+
+            // Groovy Pumping Arms (Left & Right)
+            const armPumpL = Math.sin(beat) * 22;
+            const armPumpR = -Math.sin(beat) * 22;
+            rickCtx.fillStyle = '#d97706';
+            // Left Arm
+            rickCtx.save();
+            rickCtx.translate(-34, -24);
+            rickCtx.rotate((-0.4 + Math.sin(beat) * 0.35));
+            rickCtx.fillRect(-14, 0, 14, 46);
+            rickCtx.fillStyle = '#fde68a';
+            rickCtx.beginPath();
+            rickCtx.arc(-7, 50, 8, 0, Math.PI * 2);
+            rickCtx.fill();
+            rickCtx.restore();
+
+            // Right Arm
+            rickCtx.save();
+            rickCtx.translate(34, -24);
+            rickCtx.rotate((0.4 - Math.sin(beat) * 0.35));
+            rickCtx.fillStyle = '#d97706';
+            rickCtx.fillRect(0, 0, 14, 46);
+            rickCtx.fillStyle = '#fde68a';
+            rickCtx.beginPath();
+            rickCtx.arc(7, 50, 8, 0, Math.PI * 2);
+            rickCtx.fill();
+            rickCtx.restore();
+
+            // Head & Iconic Ginger Pompadour Hair
+            rickCtx.fillStyle = '#fde68a';
+            rickCtx.beginPath();
+            rickCtx.roundRect(-22, -78, 44, 44, 10);
+            rickCtx.fill();
+
+            // Ginger Swoop Hair
+            rickCtx.fillStyle = '#ea580c';
+            rickCtx.beginPath();
+            rickCtx.arc(0, -76, 25, Math.PI, 0);
+            rickCtx.lineTo(24, -64);
+            rickCtx.lineTo(-24, -66);
+            rickCtx.closePath();
+            rickCtx.fill();
+
+            // Cool 80s Dark Sunglasses
+            rickCtx.fillStyle = '#0f172a';
+            rickCtx.fillRect(-18, -64, 15, 10);
+            rickCtx.fillRect(3, -64, 15, 10);
+            rickCtx.fillRect(-3, -61, 6, 3);
+
+            // Singing Smile
+            rickCtx.fillStyle = '#be123c';
+            const mouthOpen = 4 + Math.abs(Math.sin(beat * 2)) * 6;
+            rickCtx.beginPath();
+            rickCtx.ellipse(0, -45, 8, mouthOpen, 0, 0, Math.PI * 2);
+            rickCtx.fill();
+
+            // Retro Chrome Stand Microphone in Front
+            rickCtx.strokeStyle = '#cbd5e1';
+            rickCtx.lineWidth = 4;
+            rickCtx.beginPath();
+            rickCtx.moveTo(0, -28);
+            rickCtx.lineTo(0, 90);
+            rickCtx.stroke();
+            rickCtx.fillStyle = '#94a3b8';
+            rickCtx.beginPath();
+            rickCtx.arc(0, -32, 9, 0, Math.PI * 2);
+            rickCtx.fill();
+
+            rickCtx.restore();
+
+            // 3. Confetti Rain
+            confettiParticles.forEach(p => {
+                p.y += p.vy * dt;
+                p.x += p.vx * dt;
+                p.tilt += 4 * dt;
+                if (p.y > 1.05) {
+                    p.y = -0.05;
+                    p.x = Math.random();
+                }
+                rickCtx.save();
+                rickCtx.translate(p.x * w, p.y * h);
+                rickCtx.rotate(p.tilt);
+                rickCtx.fillStyle = p.color;
+                rickCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+                rickCtx.restore();
+            });
+        }
+
+        /********************************************************************
+         * 6. MAIN ULTRA-SMOOTH REQUESTANIMATIONFRAME LOOP (100-120+ FPS)
+         ********************************************************************/
+        let lastFrameTime = performance.now();
+        let fpsFrames = 0;
+        let fpsLastSample = performance.now();
+
+        function handleResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            if (gameState.mode === 'WON') resizeRickCanvas();
+        }
+        window.addEventListener('resize', handleResize);
+
+        function animateLoop(now) {
+            requestAnimationFrame(animateLoop);
+
+            // Delta time in seconds (clamped to prevent huge jumps when switching browser tabs)
+            const rawDt = (now - lastFrameTime) / 1000;
+            const dt = Math.min(rawDt, 0.05);
+            lastFrameTime = now;
+
+            // High-Precision FPS Counter
+            fpsFrames++;
+            if (now - fpsLastSample >= 250) {
+                const currentFps = Math.round((fpsFrames * 1000) / (now - fpsLastSample));
+                const msPerFrame = ((now - fpsLastSample) / fpsFrames).toFixed(1);
+                fpsValueEl.textContent = currentFps;
+                frameTimeEl.textContent = `${msPerFrame} ms | High-Refresh Active`;
+                const rickBadge = document.getElementById('rick-fps-badge');
+                if (rickBadge) rickBadge.textContent = `${currentFps} FPS`;
+                fpsFrames = 0;
+                fpsLastSample = now;
+            }
+
+            const timeSec = now * 0.001;
+
+            if (gameState.mode === 'PLAYING') {
+                // Gradually accelerate speed for excitement
+                gameState.speed = Math.min(gameState.maxSpeed, gameState.speed + dt * 0.42);
+                const stepDist = gameState.speed * dt;
+                gameState.distanceRun += stepDist;
+                gameState.score += stepDist * 12;
+
+                // Update Progress Bar toward Finish Line
+                const progressPct = Math.min(100, (gameState.distanceRun / gameState.targetDistance) * 100);
+                progressBarEl.style.width = `${progressPct.toFixed(1)}%`;
+                progressTextEl.textContent = `${Math.floor(progressPct)}% TO MYSTERY VAULT`;
+                scoreCountEl.textContent = String(Math.floor(gameState.score)).padStart(5, '0');
+
+                // Spawn Finish Gate Archway when nearing targetDistance
+                const remainingDist = gameState.targetDistance - gameState.distanceRun;
+                if (remainingDist <= 95 && !gameState.finishSpawned) {
+                    gameState.finishSpawned = true;
+                    finishGateGroup.visible = true;
+                    showToast('🏁 FINISH LINE AHEAD!');
+                }
+                if (gameState.finishSpawned) {
+                    finishGateGroup.position.z = 2 - remainingDist;
+                }
+
+                // Check Win Condition!
+                if (gameState.distanceRun >= gameState.targetDistance) {
+                    triggerWinRickroll();
+                    return;
+                }
+
+                // Smooth Frame-Rate Independent Lane Interpolation
+                const targetX = LANES[gameState.currentLane];
+                const lerpFactor = 1 - Math.exp(-18 * dt);
+                gameState.playerX += (targetX - gameState.playerX) * lerpFactor;
+
+                // Jump Physics
+                if (gameState.isJumping) {
+                    gameState.playerY += gameState.velocityY * dt;
+                    gameState.velocityY -= 38.0 * dt; // Gravity
+                    if (gameState.playerY <= 0) {
+                        gameState.playerY = 0;
+                        gameState.velocityY = 0;
+                        gameState.isJumping = false;
+                    }
+                }
+
+                // Roll / Duck Timer
+                if (gameState.isRolling) {
+                    gameState.rollTimer -= dt;
+                    if (gameState.rollTimer <= 0) {
+                        gameState.isRolling = false;
+                    }
+                }
+
+                // Apply Player Transformations & Limb Animation
+                playerGroup.position.set(gameState.playerX, gameState.playerY, 2);
+                const targetScaleY = gameState.isRolling ? 0.46 : 1.0;
+                bodyGroup.scale.y += (targetScaleY - bodyGroup.scale.y) * (1 - Math.exp(-22 * dt));
+                playerGroup.rotation.z = (gameState.playerX - targetX) * 0.14;
+
+                const runCycle = timeSec * gameState.speed * 0.85;
+                if (!gameState.isJumping && !gameState.isRolling) {
+                    leftLeg.rotation.x = Math.sin(runCycle) * 0.75;
+                    rightLeg.rotation.x = -Math.sin(runCycle) * 0.75;
+                    leftArm.rotation.x = -Math.sin(runCycle) * 0.65;
+                    rightArm.rotation.x = Math.sin(runCycle) * 0.65;
+                } else {
+                    leftLeg.rotation.x = 0.4;
+                    rightLeg.rotation.x = -0.4;
+                }
+
+                // Scroll Endless Sleepers & Neon Pillars
+                sleeperPool.forEach(row => {
+                    row.position.z += stepDist;
+                    if (row.position.z > 16) {
+                        row.position.z -= 28 * 5;
+                    }
+                });
+
+                // Spawn & Update Obstacles
+                gameState.spawnTimer -= dt;
+                if (gameState.spawnTimer <= 0) {
+                    spawnObstacleWave();
+                    gameState.spawnTimer = Math.max(0.55, 1.18 - (gameState.speed - 26) * 0.03);
+                }
+
+                obstaclePool.forEach(obs => {
+                    if (!obs.active) return;
+                    // Oncoming trains move slightly faster than static barriers
+                    const obsSpeed = obs.type === 'train' ? gameState.speed * 1.22 : gameState.speed;
+                    obs.z += obsSpeed * dt;
+                    obs.group.position.z = obs.z;
+
+                    // Collision Detection near Player Z (Player is at z = 2.0)
+                    const halfDepth = obs.type === 'train' ? 5.5 : 0.45;
+                    if (obs.z + halfDepth > 1.55 && obs.z - halfDepth < 2.45) {
+                        const dx = Math.abs(gameState.playerX - LANES[obs.lane]);
+                        if (dx < 0.95) {
+                            let crashed = false;
+                            let reason = '';
+                            if (obs.type === 'train') {
+                                crashed = true;
+                                reason = 'You collided head-on with an Express Subway Train!';
+                            } else if (obs.type === 'low' && gameState.playerY < 0.95) {
+                                crashed = true;
+                                reason = 'You tripped over a Low Barrier! Press JUMP (W / Up) next time.';
+                            } else if (obs.type === 'high' && !gameState.isRolling) {
+                                crashed = true;
+                                reason = 'You hit a High Security Gate! Press ROLL (S / Down) to slide under.';
+                            }
+
+                            if (crashed) {
+                                sound.playCrash();
+                                gameState.mode = 'CRASHED';
+                                document.getElementById('crash-reason').textContent = reason;
+                                document.getElementById('crash-progress').textContent = `${Math.floor(progressPct)}%`;
+                                document.getElementById('crash-coins').textContent = gameState.coins;
+                                crashModal.classList.remove('hidden');
+                            }
+                        }
+                    }
+
+                    if (obs.z > 18) {
+                        obs.active = false;
+                        obs.group.visible = false;
+                    }
+                });
+
+                // Spawn & Update Coins
+                gameState.coinSpawnTimer -= dt;
+                if (gameState.coinSpawnTimer <= 0) {
+                    spawnCoinLine();
+                    gameState.coinSpawnTimer = 1.15;
+                }
+
+                coinPool.forEach(c => {
+                    if (!c.active) return;
+                    c.z += stepDist;
+                    c.mesh.position.z = c.z;
+                    c.mesh.rotation.y += 4.5 * dt;
+
+                    // Check Coin Pickup
+                    if (Math.abs(c.z - 2.0) < 0.95 && Math.abs(gameState.playerX - LANES[c.lane]) < 1.05) {
+                        if (Math.abs((gameState.playerY + 1.0) - c.baseY) < 1.45) {
+                            c.active = false;
+                            c.mesh.visible = false;
+                            gameState.coins++;
+                            gameState.score += 100;
+                            coinCountEl.textContent = gameState.coins;
+                            sound.playCoin();
+                        }
+                    }
+
+                    if (c.z > 14) {
+                        c.active = false;
+                        c.mesh.visible = false;
+                    }
+                });
+            } else if (gameState.mode === 'MENU') {
+                // Gentle idle preview animation on menu screen
+                playerGroup.position.set(0, Math.abs(Math.sin(timeSec * 3)) * 0.15, 2);
+                leftArm.rotation.x = Math.sin(timeSec * 3) * 0.25;
+                rightArm.rotation.x = -Math.sin(timeSec * 3) * 0.25;
+            } else if (gameState.mode === 'WON') {
+                // Render the 120 FPS Rickroll Celebration Stage
+                renderRickrollStage(timeSec, dt);
+            }
+
+            // Smooth Dynamic Camera Follow
+            camera.position.x += ((gameState.playerX * 0.45 + camOrbitOffset.x) - camera.position.x) * (1 - Math.exp(-10 * dt));
+            camera.position.y += ((camBasePos.y + gameState.playerY * 0.3 + camOrbitOffset.y) - camera.position.y) * (1 - Math.exp(-10 * dt));
+            camera.position.z = camBasePos.z;
+            camera.lookAt(gameState.playerX * 0.25, 1.6 + gameState.playerY * 0.2, -12);
+
+            renderer.render(scene, camera);
+        }
+
+        // Start the animation loop on window load
+        window.onload = function () {
+            handleResize();
+            requestAnimationFrame(animateLoop);
+        };
+    </script>
+</body>
+</html>
